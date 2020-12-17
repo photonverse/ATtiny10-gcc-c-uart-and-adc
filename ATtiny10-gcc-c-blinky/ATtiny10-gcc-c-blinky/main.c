@@ -1,8 +1,9 @@
 /*
- * ATtiny10-gcc-c-blinky.c
+ * ATtiny10-gcc-c-uart-and-adc
  *
- * Created: 11/26/2020 8:03:55 PM
- * Author : Kwangwu Lee
+ * File     : main.c
+ * Created  : 11/26/2020 8:03:55 PM
+ * Author   : photonverse
  */
 
 #include <avr/io.h>
@@ -95,8 +96,20 @@ void outDec(uint16_t num)
 
 int main(void)
 {
-    CCP     = 0xD8;
-    CLKPSR  = 0;
+    // Configuration Change Protection Register
+    /*
+    In order to change the contents of a protected I/O register the CCP register must first be written with the
+    correct signature. After CCP is written the protected I/O registers may be written to during the next four
+    CPU instruction cycles. All interrupts are ignored during these cycles. After these cycles interrupts are
+    automatically handled again by the CPU, and any pending interrupts will be executed according to their
+    priority.
+    When the protected I/O register signature is written, CCP[0] will read as one as long as the protected
+    feature is enabled, while CCP[7:1] will always read as zero.
+    CCP[7:1] only have write access. CCP[0] has both read and write access.
+    */
+    CCP     = 0xD8; // Set special signature value (i.e., a magic value)
+    CLKPSR  = 0;    // Immediately write a protected IO register within 4 CPU cycles.
+                    // Value 0 for Clock Division Factor 1 (i.e, no clock prescaler)
 
     DDRB    =   /* _BV(PORTB3) | */ _BV(PB2) | _BV(PB0); // PORTB2 = PB2, etc... Refer avr/portpin.h
 
@@ -116,7 +129,8 @@ int main(void)
     // Timer/Counter Mode of Operation = CTC (Clear Timer on Compare)
     TCCR0A  = 0;        // Timer/Counter0 Control Register A
     // TCCR0B  = 0b1001;   // No pre-scaler. CTC mode (clear timer on compare) for WGM0[3:2]
-    TCCR0B  = (0b01 << WGM02) | (0b001 << CS00); // More descriptive value settings. No pre-scaler. CTC mode 4 (clear timer on compare) for WGM0[3:2]
+    TCCR0B  = (0b01 << WGM02) | (0b001 << CS00);    // More descriptive value settings.
+                                                    //No pre-scaler. CTC mode 4 (clear timer on compare) for WGM0[3:2]
     // 8 MHz / 9600 bps = 833.3333...
     OCR0AH  = TIMER_COUNT_9600_BPS >> 8;    // High byte value
     OCR0AL  = TIMER_COUNT_9600_BPS & 0xFF;  // Low byte value
@@ -161,16 +175,18 @@ int main(void)
 
         boringCount++;
 
-        /*
+#if BLINK_TEST
+        // Simply 1 second periodic LED blink test on PORTB2
         setPin(PORTB2, HIGH);
         _delay_ms(500);
 
         setPin(PORTB2, LOW);
         _delay_ms(500);
-        */
+#endif // BLINK_TEST
     }
 }
 
+#if BLINK_TEST
 void setPin(uint8_t port_B_pin, uint8_t is_on)
 {
     if (is_on)
@@ -182,4 +198,4 @@ void setPin(uint8_t port_B_pin, uint8_t is_on)
         PORTB &= ~(_BV(port_B_pin));
     }
 }
-
+#endif // BLINK_TEST
